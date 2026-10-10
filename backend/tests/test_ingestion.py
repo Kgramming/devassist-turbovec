@@ -1,4 +1,4 @@
-"""Ingestion: extraction -> chunks -> local embeddings (384) -> FAISS."""
+"""Ingestion: extraction -> chunks -> local embeddings (384) -> TurboVec."""
 
 import pytest
 
