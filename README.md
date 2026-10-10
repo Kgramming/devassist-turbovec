@@ -1,11 +1,21 @@
-# DevAssist Chatbot
+# DevAssist Chatbot — TurboVec Edition
 
 A programming-only assistant with a rudimentary Retrieval-Augmented
 Generation (RAG) system: upload your docs (PDF/TXT/MD), ask questions, and
 get streamed, syntax-highlighted answers grounded in your own material.
 
 **Stack:** Vue 3 (Composition API) + TailwindCSS v4 → FastAPI (async) →
-local MiniLM embeddings + FAISS → Groq LLM → WebSocket streaming.
+local MiniLM embeddings + TurboVec → Groq LLM → WebSocket streaming.
+
+> **TurboVec Edition.** This repository is an isolated port of the original
+> DevAssist Chatbot (`Kgramming/devassist-chatbot`, FAISS-based) that replaces
+> the vector-search layer with [TurboVec](https://github.com/RyanCodrai/turbovec)
+> (`IdMapIndex`, 384-dim, 4-bit TurboQuant, CPU-only). Everything else —
+> chunking (500/50), embeddings, top-3 retrieval, Groq generation, WebSocket
+> streaming, guardrails, upload limits — is unchanged. It runs on its own
+> ports (**frontend 5175, backend 8012**) so both editions can run side by
+> side. See [`docs/TURBOVEC_COMPARISON.md`](docs/TURBOVEC_COMPARISON.md) for
+> the FAISS-vs-TurboVec design notes.
 
 ---
 
@@ -25,8 +35,8 @@ No API key needed — mock mode runs the full UI and RAG pipeline locally.
 
 ```bash
 # 1. Start the backend (mock mode) and frontend
-cd backend && MOCK_GROQ=true .venv/bin/python -m uvicorn app.main:app --port 8000 &
-cd frontend && npm run dev   # → http://localhost:5173
+cd backend && MOCK_GROQ=true .venv/bin/python -m uvicorn app.main:app --port 8012 &
+cd frontend && npm run dev   # → http://localhost:5175
 ```
 
 Then in the browser:
@@ -44,7 +54,7 @@ Then in the browser:
 DevAssist is a specialized chatbot for programming and software-engineering
 assistance. The Vue frontend provides a developer-focused chat interface
 with a document sidebar; the FastAPI backend ingests uploaded documents,
-indexes them locally with sentence embeddings in FAISS, retrieves the most
+indexes them locally with sentence embeddings in TurboVec, retrieves the most
 relevant chunks per question, and streams answers from Groq's API over a
 WebSocket. A system-prompt guardrail keeps the assistant strictly
 programming-focused, and retrieved document text is always treated as
@@ -74,7 +84,7 @@ purpose:
 - 📄 Document upload (`.pdf`, `.txt`, `.md`, ≤ 5 MB) with progress, indexing status, list, and delete
 - 📎 Multi-document upload: select many files at once; a frontend queue (max 2 concurrent) with per-file Queued / Uploading / Indexing / Completed / Failed / Cancelled states and cancellation of queued or in-flight uploads
 - 🕘 Persistent chat history: conversations auto-saved to browser localStorage (max 50), grouped Today / Previous, click-to-restore with original source attribution; New Chat keeps documents untouched
-- 🔎 Local RAG: MiniLM-L6-v2 embeddings (384-dim) + FAISS exact search, top-3 chunks, ~1500-token bounded context
+- 🔎 Local RAG: MiniLM-L6-v2 embeddings (384-dim) + TurboVec 4-bit search, top-3 chunks, ~1500-token bounded context
 - 📚 Accurate source attribution: Sources show only the documents that genuinely contributed retrieved context (deduplicated); programming-scope refusals never show sources
 - 🛡️ Programming-only guardrail via system-prompt engineering (with worked in-scope/out-of-scope examples)
 - 🧱 Prompt-injection defense: retrieved text structurally separated from system instructions
@@ -88,7 +98,7 @@ purpose:
 ## 4. Architecture
 
 ```
-Vue 3 SPA ──REST──▶ FastAPI ──▶ Ingestion ──▶ MiniLM (local) ──▶ FAISS (in-memory)
+Vue 3 SPA ──REST──▶ FastAPI ──▶ Ingestion ──▶ MiniLM (local) ──▶ TurboVec (in-memory)
     │                    │
     └──── WebSocket ◀────┴──▶ Chat service ──▶ Groq client ──▶ Groq Cloud API (SSE stream)
 ```
@@ -109,7 +119,7 @@ REST + WebSocket contract: [`docs/API.md`](docs/API.md).
 | HTTP client | httpx (Groq streaming) | 0.28.1 |
 | LLM | Groq Cloud API, `openai/gpt-oss-120b` | — |
 | Embeddings | sentence-transformers `all-MiniLM-L6-v2` (local, CPU) | 6.1.0 |
-| Vector store | faiss-cpu (`IndexFlatIP`, 384-dim) | 1.15.1 |
+| Vector store | turbovec (`IdMapIndex`, 384-dim, 4-bit) | 1.1.2 |
 | PDF parsing | pypdf | 6.19.0 |
 | ML runtime | torch (CPU-only build) | 2.14.1+cpu |
 | Tests | pytest + pytest-asyncio | 9.1.1 / 1.4.0 |
@@ -133,7 +143,7 @@ devassist-chatbot/
 │   │   ├── rag/
 │   │   │   ├── chunker.py       # 500/50 char chunking (pure, testable)
 │   │   │   ├── embeddings.py    # local MiniLM-L6-v2, 384-dim L2-normalized
-│   │   │   ├── vectorstore.py   # FAISS IndexFlatIP wrapper + dimension guard
+│   │   │   ├── vectorstore.py   # TurboVec IdMapIndex wrapper + dimension guard
 │   │   │   ├── ingestion.py     # validate → extract → chunk → embed → index
 │   │   │   └── prompts.py       # system prompt, RAG delimiters, prompt assembly
 │   │   └── services/
@@ -181,7 +191,7 @@ devassist-chatbot/
 cp .env.example backend/.env
 # edit backend/.env: set GROQ_API_KEY (or leave empty for mock mode)
 
-# 2. (Optional) frontend backend URL — defaults to http://localhost:8000.
+# 2. (Optional) frontend backend URL — defaults to http://localhost:8012.
 #    Only needed if the backend runs elsewhere:
 #    cp frontend/.env.example frontend/.env   # then set VITE_API_URL
 ```
@@ -193,8 +203,8 @@ Key variables (`backend/.env`; all knobs documented in
 |---|---|---|
 | `GROQ_API_KEY` | *(empty)* | Empty ⇒ mock mode (no quota used) |
 | `GROQ_MODEL` | `openai/gpt-oss-120b` | Change without code edits |
-| `PORT` | `8000` | Backend port |
-| `FRONTEND_ORIGIN` | `http://localhost:5173` | CORS allow-origin |
+| `PORT` | `8012` | Backend port |
+| `FRONTEND_ORIGIN` | `http://localhost:5175` | CORS allow-origin |
 | `MAX_FILE_SIZE_MB` | `5` | Upload cap |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `500` / `50` | RAG chunking |
 | `TOP_K` | `3` | Retrieval depth |
@@ -224,23 +234,23 @@ cd ..
 ```bash
 cd backend
 # Mock mode (no key needed — full UI + RAG pipeline, canned responses):
-MOCK_GROQ=true .venv/bin/uvicorn app.main:app --port 8000
+MOCK_GROQ=true .venv/bin/uvicorn app.main:app --port 8012
 # Live mode (requires GROQ_API_KEY in backend/.env):
-.venv/bin/uvicorn app.main:app --port 8000
+.venv/bin/uvicorn app.main:app --port 8012
 ```
 
-Health check: `curl http://localhost:8000/health` →
+Health check: `curl http://localhost:8012/health` →
 `{"status":"ok","groq_configured":false,"documents_indexed":0}`.
 
 ## 11. Frontend startup
 
 ```bash
 cd frontend
-npm run dev      # → http://localhost:5173
+npm run dev      # → http://localhost:5175
 ```
 
 The dev server proxies nothing — the app calls the backend at `VITE_API_URL`
-(default `http://localhost:8000`; the WebSocket URL is derived from it).
+(default `http://localhost:8012`; the WebSocket URL is derived from it).
 Production build: `npm run build` → `frontend/dist/`.
 
 ## 12. Running tests
@@ -256,7 +266,7 @@ cd backend
 `tests/conftest.py`, so **no Groq quota is consumed** and no key is needed.
 Coverage: chunking (500/50, overlap, edge cases), file validation
 (extensions, sizes, malformed/truncated PDFs, empty files, latin-1
-fallback), ingestion end-to-end, FAISS add/search/remove + dimension guard,
+fallback), ingestion end-to-end, TurboVec add/search/remove/filter/rebuild + dimension guard,
 query embedding, top-3 retrieval, empty store, prompt section separation,
 retrieved-context isolation, guardrail in-scope/out-of-scope examples, no
 keyword blacklist, mocked Groq SSE streaming, 401/429/500/timeout/network
@@ -291,9 +301,9 @@ recovery, and the 50-conversation cap.
    500-char windows with 50-char overlap (no empty chunks) → each chunk is
    embedded locally by MiniLM-L6-v2 into a 384-dim L2-normalized vector →
    vectors + metadata (`document_id`, `filename`, `chunk_index`,
-   `source`, `text`) are added to a FAISS `IndexFlatIP` index.
+   `source`, `text`) are added to a TurboVec `IdMapIndex` (4-bit).
 2. **Retrieve** (per chat turn, `app/services/chat.py`): the query is
-   embedded with the same local model → FAISS exact search returns the top-3
+   embedded with the same local model → TurboVec search returns the top-3
    chunks by cosine similarity (inner product on normalized vectors). Empty
    store → no context, normal answer from the model.
 3. **Bound** (`app/rag/prompts.py`): chunks are formatted into a delimited
@@ -397,7 +407,7 @@ explicitly warns against pretending to). Instead:
 
 ## 20. Future improvements
 
-- Persistent vector store (e.g. FAISS on disk or pgvector) + document
+- Persistent vector store (e.g. TurboVec `.write()`/`.load()` on disk or pgvector) + document
   re-indexing on startup
 - Conversation memory (multi-turn context window management)
 - Semantic/code-aware chunking (AST- or markdown-section-based)
@@ -411,8 +421,8 @@ explicitly warns against pretending to). Instead:
 
 Suggested 2-minute flow (works in **mock mode** — no key needed):
 
-1. Start backend (`MOCK_GROQ=true …uvicorn app.main:app --port 8000`) and
-   frontend (`npm run dev`), open http://localhost:5173.
+1. Start backend (`MOCK_GROQ=true …uvicorn app.main:app --port 8012`) and
+   frontend (`npm run dev`), open http://localhost:5175.
 2. Ask a programming question, e.g. *"Explain Python decorators with an
    example."* — watch tokens stream in and code render with highlighting.
 3. Upload `docs/sample-knowledge.md` (an original asyncio reference guide);
