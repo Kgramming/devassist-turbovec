@@ -7,6 +7,9 @@
 #   .venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
 # (torch==2.14.1+cpu below was installed that way; plain `pip install torch`
 # on PyPI would pull the much larger CUDA build.)
+# Platform-aware pins (verified 2026-10-10): the +cpu local version is only
+# published for Linux. macOS (incl. Apple Silicon) uses the standard build,
+# which is CPU-only on macOS anyway.
 
 --extra-index-url https://download.pytorch.org/whl/cpu
 
@@ -20,7 +23,9 @@ httpx==0.28.1
 numpy==2.5.3
 turbovec==1.1.2
 sentence-transformers==6.1.0
-torch==2.14.1+cpu
+# Linux keeps the CPU-specific build; macOS uses the standard (CPU-only) build.
+torch==2.14.1+cpu; sys_platform == "linux"
+torch==2.14.1; sys_platform == "darwin"
 pypdf==6.19.0
 pytest==9.1.1
 pytest-asyncio==1.4.0
