@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-120b"
 
     # --- Server ---
-    PORT: int = 8000
-    FRONTEND_ORIGIN: str = "http://localhost:5173"
+    PORT: int = 8012
+    FRONTEND_ORIGIN: str = "http://localhost:5175"
 
     # --- Uploads ---
     MAX_FILE_SIZE_MB: int = 5

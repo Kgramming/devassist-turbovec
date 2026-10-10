@@ -10,7 +10,7 @@
 // 2. VITE_API_URL is NOT set (vite dev): use same-origin relative URLs
 //    ("/health", "/ws/chat", ...). The Vite dev server proxies these to the
 //    backend (see vite.config.js), so the browser never calls
-//    http://localhost:8000 directly — this is what makes a single Ngrok
+//    http://localhost:8012 directly — this is what makes a single Ngrok
 //    tunnel serve the whole app.
 
 const _env = (import.meta && import.meta.env) || {}

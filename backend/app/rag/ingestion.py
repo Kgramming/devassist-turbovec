@@ -42,7 +42,7 @@ class EmbeddingError(Exception):
 
 
 class IndexingError(Exception):
-    """500: FAISS indexing failed."""
+    """500: TurboVec indexing failed."""
 
 
 # ---------- Pure, testable validation/extraction helpers ----------
@@ -165,7 +165,7 @@ class DocumentIngestionService:
                 self.vectorstore.add_document, document_id, vectors, metadatas
             )
         except Exception as exc:
-            logger.exception("FAISS indexing failed")
+            logger.exception("TurboVec indexing failed")
             raise IndexingError("Failed to index the document.") from exc
 
         self.documents[document_id] = {

@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
   server: {
-    port: 5173,
+    port: 5175,
     // Allow access through the Ngrok public hostname for testing.
     // Host validation stays on for everything else (no `true` wildcard).
     // The leading-dot entry covers future Ngrok hostnames on this domain.
@@ -18,18 +18,18 @@ export default defineConfig({
     ],
     // Proxy backend traffic to the local FastAPI server so the browser
     // only ever talks to the Vite dev-server origin. This is what lets a
-    // single Ngrok tunnel (port 5173) serve the whole app: the browser
+    // single Ngrok tunnel (port 5175) serve the whole app: the browser
     // requests https://<tunnel>/health, Vite forwards it to
-    // http://localhost:8000/health. Same-origin requests need no CORS.
+    // http://localhost:8012/health. Same-origin requests need no CORS.
     //
     // Paths mirror the actual FastAPI routes (see backend/app/api/):
     //   GET  /health, POST /upload, GET|DELETE /documents[/{id}], WS /ws/chat
     proxy: {
-      '/health': 'http://localhost:8000',
-      '/upload': 'http://localhost:8000',
-      '/documents': 'http://localhost:8000',
+      '/health': 'http://localhost:8012',
+      '/upload': 'http://localhost:8012',
+      '/documents': 'http://localhost:8012',
       '/ws': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8012',
         ws: true, // forward WebSocket upgrade for /ws/chat
       },
     },
